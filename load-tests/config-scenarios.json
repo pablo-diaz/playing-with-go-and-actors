@@ -1,0 +1,95 @@
+{
+    "discardResponseBodies": true,
+    "scenarios": {
+        "s01_coldStart": {
+            "executor": "per-vu-iterations",
+            "startTime": "0s",
+            "vus": 1,
+            "iterations": 1
+        },
+        "s02_10Users": {
+            "executor": "per-vu-iterations",
+            "startTime": "2s",
+            "vus": 10,
+            "iterations": 1
+        },
+        "s03_30Users": {
+            "executor": "per-vu-iterations",
+            "startTime": "4s",
+            "vus": 30,
+            "iterations": 1
+        },
+        "s04_100Users": {
+            "executor": "per-vu-iterations",
+            "startTime": "6s",
+            "vus": 100,
+            "iterations": 1
+        },
+        "s05_100Users_5iters": {
+            "executor": "per-vu-iterations",
+            "startTime": "8s",
+            "vus": 100,
+            "iterations": 5
+        },
+        "s06_500Users": {
+            "executor": "per-vu-iterations",
+            "startTime": "10s",
+            "vus": 500,
+            "iterations": 1
+        },
+        "s07_500Users_10iters": {
+            "executor": "per-vu-iterations",
+            "startTime": "12s",
+            "vus": 500,
+            "iterations": 10
+        },
+        "s08_1kUsers": {
+            "executor": "per-vu-iterations",
+            "startTime": "14s",
+            "vus": 1000,
+            "iterations": 1
+        },
+        "s09_1kUsers_20iters": {
+            "executor": "per-vu-iterations",
+            "startTime": "16s",
+            "vus": 1000,
+            "iterations": 20
+        },
+        "s10_1kUsers_50iters": {
+            "executor": "per-vu-iterations",
+            "startTime": "18s",
+            "vus": 1000,
+            "iterations": 50
+        },
+        "s11_1kUsers_100iters": {
+            "executor": "per-vu-iterations",
+            "startTime": "25s",
+            "vus": 1000,
+            "iterations": 100
+        },
+        "s12_2kUsers_10iters": {
+            "executor": "per-vu-iterations",
+            "startTime": "35s",
+            "vus": 2000,
+            "iterations": 10
+        },
+        "s13_2kUsers_50iters": {
+            "executor": "per-vu-iterations",
+            "startTime": "45s",
+            "vus": 2000,
+            "iterations": 50
+        },
+        "s14_2kUsers_100iters": {
+            "executor": "per-vu-iterations",
+            "startTime": "60s",
+            "vus": 2000,
+            "iterations": 100
+        },
+        "s15_5kUsers_10iters": {
+            "executor": "per-vu-iterations",
+            "startTime": "80s",
+            "vus": 5000,
+            "iterations": 10
+        }
+    }
+}

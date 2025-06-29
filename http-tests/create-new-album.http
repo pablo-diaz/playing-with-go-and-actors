@@ -1,0 +1,1 @@
+curl -X POST -H "Content-Type: application/json" -d '{"id": "al01", "title": "Album 01", "artist": "Artist 01", "price": "USD$15.99"}' http://localhost:8080/albums
