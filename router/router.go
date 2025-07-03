@@ -7,6 +7,7 @@ import (
 	"example.com/web-service-gin/actorModel"
 	"example.com/web-service-gin/dbTasks"
 	"example.com/web-service-gin/handlers"
+	"github.com/gin-gonic/contrib/expvar"
 	"github.com/gin-gonic/gin"
 )
 
@@ -29,6 +30,8 @@ func SetupRouter(withAlbumManager *actorModel.AlbumManager) *gin.Engine {
 	router.GET("/albums/new/:id", handlers.GetAlbumById_NewWay)
 
 	router.POST("/albums", handlers.PostAlbums)
+
+	router.GET("/debug/vars", expvar.Handler())
 
 	return router
 }
