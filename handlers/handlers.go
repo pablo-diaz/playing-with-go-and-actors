@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -66,13 +68,14 @@ func GetAlbumByID(c *gin.Context) {
 }
 
 func GetAlbumById_NewWay(c *gin.Context) {
+	id := c.Param("id")
 	db := getDbFromContext(c)
 	am := getAlbumsManagerFromContext(c)
 
 	responseChan := make(chan *actorModel.ResponseAfterGettingAlbumInfo, ALLOW_ONE_RESPONSE_TO_BE_SENT)
 
 	am.PlaceRequestToGetAlbumInfo(actorModel.RequestToGetAlbumInfo{
-		AlbumIdToRequest: actorModel.AlbumId(c.Param("id")),
+		AlbumIdToRequest: actorModel.AlbumId(id),
 		UsingDb:          db,
 		PlaceInfoHere:    responseChan})
 
@@ -92,7 +95,8 @@ func GetAlbumById_NewWay(c *gin.Context) {
 		return
 
 	case <-time.After(10 * time.Second):
-		c.IndentedJSON(http.StatusRequestTimeout, gin.H{"error": "stop waiting for response about Album Info"})
+		fmt.Fprintf(os.Stderr, "[%v] Request for '%v' timed-out: %v \n", time.Now(), id, c.Request.URL.String())
+		c.IndentedJSON(http.StatusGatewayTimeout, gin.H{"error": "stop waiting for response about Album Info"})
 		return
 	}
 
