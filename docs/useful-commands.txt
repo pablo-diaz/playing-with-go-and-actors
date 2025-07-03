@@ -9,7 +9,7 @@ k6 run get-album-by-id.js -c config-scenarios.json
 http://localhost:5665
 http://localhost:5665/ui/?endpoint=/
 
-DATABASE_URL="host=localhost user=recordstoredbo password=rsdbo dbname=recordstore port=5432 sslmode=disable TimeZone=America/Bogota" GIN_MODE=release ON_HOST=localhost ON_PORT=8080 ./album-manager-web-service
+DATABASE_URL="host=localhost user=recordstoredbo password=rsdbo dbname=recordstore port=5432 sslmode=disable TimeZone=America/Bogota" GIN_MODE=release ON_HOST=172.19.80.49 ./album-manager-web-service
 
 GIN_MODE=release go run main.go > load-tests/server-logs-01 2>load-tests/server-errors-01
 
@@ -32,3 +32,5 @@ curl http://localhost:8080/albums
 curl http://localhost:8080/albums/new/al01
 
 curl -X POST -H "Content-Type: application/json" -d '{"id": "al01", "title": "Album 01", "artist": "Artist 01", "price": "USD$15.99"}' http://localhost:8080/albums
+
+curl -s http://localhost:8080/debug/vars | grep _inbox_channel_length
