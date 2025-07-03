@@ -3,14 +3,16 @@ package actorModel
 import (
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"example.com/web-service-gin/models"
+	"example.com/web-service-gin/monitoredChannel"
 	"gorm.io/gorm"
 )
 
-const MAX_ENTRIES_FOR_ALBUM_ACTOR_INBOX = 100_000
-const SECONDS_TO_STOP_ACTOR = 3
+const MAX_ENTRIES_FOR_ALBUM_ACTOR_INBOX = 1_000
+const FREQUENCY_TO_REFRESH_DATA_FROM_PERSISTENCE = 3
 
 type AlbumId string
 
@@ -19,8 +21,9 @@ type GetAlbumInfoReq struct {
 }
 
 type AlbumActor struct {
-	info  *models.Album
-	inbox chan GetAlbumInfoReq
+	info                                  *models.Album
+	lastTimeDataWasFetchedFromPersistence time.Time
+	inbox                                 *monitoredChannel.MonitoredChannel[GetAlbumInfoReq]
 }
 
 type ResponseAfterGettingAlbumInfo struct {
@@ -28,40 +31,54 @@ type ResponseAfterGettingAlbumInfo struct {
 	MaybeErrorFound     error
 }
 
-func createAlbumActor(albumId AlbumId, usingDb *gorm.DB, chanToNotifyWhenActorStopped chan<- any) (*AlbumActor, error) {
+func createAlbumActor(albumId AlbumId, usingDb *gorm.DB) (*AlbumActor, error) {
 	maybeAlbumFound, err := loadInfoFromPersistence(albumId, usingDb)
 	if err != nil {
 		return nil, err
 	}
 
-	inbox := make(chan GetAlbumInfoReq, MAX_ENTRIES_FOR_ALBUM_ACTOR_INBOX)
+	inbox := monitoredChannel.NewMonitoredChannel[GetAlbumInfoReq](fmt.Sprintf("album_%v_inbox", string(albumId)), MAX_ENTRIES_FOR_ALBUM_ACTOR_INBOX, 1*time.Second)
 
-	go receiveAllMessages(inbox, maybeAlbumFound, SECONDS_TO_STOP_ACTOR*time.Second, albumId, chanToNotifyWhenActorStopped)
+	newActor := &AlbumActor{
+		info:                                  maybeAlbumFound,
+		lastTimeDataWasFetchedFromPersistence: time.Now(),
+		inbox:                                 inbox,
+	}
 
-	return &AlbumActor{info: maybeAlbumFound, inbox: inbox}, nil
+	go newActor.receiveAllMessages(maybeAlbumFound, albumId, usingDb)
+
+	return newActor, nil
 }
 
-func receiveAllMessages(fromInbox chan GetAlbumInfoReq, withAlbum *models.Album, andFinishAfter time.Duration, albumId AlbumId, chanToNotifyWhenStopped chan<- any) {
-	timeout := time.After(andFinishAfter)
-
-	defer func() {
-		fmt.Printf("--------- [Album %v] Stopping actor \n", albumId)
-		chanToNotifyWhenStopped <- albumId
-	}()
-
-loopToProcessAllMessagesFromInbox:
+func (m *AlbumActor) receiveAllMessages(withAlbum *models.Album, albumId AlbumId, usingDb *gorm.DB) {
 	for {
-		select {
-		case message := <-fromInbox:
-			processRequestToGetAlbumInfo(message, withAlbum)
-		case <-timeout:
-			break loopToProcessAllMessagesFromInbox // it's time to stop this never ending loop
+		request := m.inbox.Receive()
+		if m.shouldItRefreshDataFromPersistence() {
+			m.refreshDataFromPersistence(albumId, usingDb)
 		}
+		processRequestToGetAlbumInfo(request, withAlbum)
 	}
 }
 
+func (m *AlbumActor) shouldItRefreshDataFromPersistence() bool {
+	return time.Since(m.lastTimeDataWasFetchedFromPersistence).Seconds() >= FREQUENCY_TO_REFRESH_DATA_FROM_PERSISTENCE
+}
+
+func (m *AlbumActor) refreshDataFromPersistence(withAlbumId AlbumId, usingDb *gorm.DB) {
+	m.lastTimeDataWasFetchedFromPersistence = time.Now()
+	maybeAlbumFound, err := loadInfoFromPersistence(withAlbumId, usingDb)
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "--------- [Album %v] There was an error refreshing data from persistence: %v \n", withAlbumId, err)
+		return // we only log this error, but we don't stop it all, so this actor can still return the most recent cached info
+	}
+
+	m.info = maybeAlbumFound
+	fmt.Printf("--------- [Album %v] Data was refreshed successfully from persistence \n", withAlbumId)
+}
+
 func (a *AlbumActor) placeRequestToGetAlbumInfo(r GetAlbumInfoReq) {
-	a.inbox <- r
+	a.inbox.Send(r)
 }
 
 func processRequestToGetAlbumInfo(message GetAlbumInfoReq, infoToReturn *models.Album) {
