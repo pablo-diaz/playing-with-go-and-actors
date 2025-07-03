@@ -1,14 +1,17 @@
 package actorModel
 
 import (
+	"time"
+
+	"example.com/web-service-gin/monitoredChannel"
 	"gorm.io/gorm"
 )
 
-const MAX_ENTRIES_FOR_ALBUM_MANAGER_INBOX = 100_000
+const MAX_ENTRIES_FOR_ALBUM_MANAGER_INBOX = 1_000
 
 type AlbumManager struct {
 	albumActors map[AlbumId]*AlbumActor
-	inbox       chan any
+	inbox       *monitoredChannel.MonitoredChannel[RequestToGetAlbumInfo]
 }
 
 type RequestToGetAlbumInfo struct {
@@ -20,7 +23,7 @@ type RequestToGetAlbumInfo struct {
 func CreateNewAlbumManager() *AlbumManager {
 	newAlbumManager := &AlbumManager{
 		albumActors: make(map[AlbumId]*AlbumActor),
-		inbox:       make(chan any, MAX_ENTRIES_FOR_ALBUM_MANAGER_INBOX),
+		inbox:       monitoredChannel.NewMonitoredChannel[RequestToGetAlbumInfo]("album_manager_inbox", MAX_ENTRIES_FOR_ALBUM_MANAGER_INBOX, 1*time.Second),
 	}
 
 	go newAlbumManager.startProcessingMessagesFromInbox()
@@ -29,28 +32,19 @@ func CreateNewAlbumManager() *AlbumManager {
 }
 
 func (m *AlbumManager) PlaceRequestToGetAlbumInfo(r RequestToGetAlbumInfo) {
-	m.inbox <- r
+	m.inbox.Send(r)
 }
 
 func (m *AlbumManager) startProcessingMessagesFromInbox() {
-	for message := range m.inbox {
-		switch request := message.(type) {
-		case RequestToGetAlbumInfo:
-			m.processRequestToGetAlbumInfo(request)
-		case AlbumId:
-			m.removeAlbumActor(request)
-		}
+	for {
+		m.processRequestToGetAlbumInfo(m.inbox.Receive())
 	}
-}
-
-func (m *AlbumManager) removeAlbumActor(idToRemove AlbumId) {
-	delete(m.albumActors, idToRemove)
 }
 
 func (m *AlbumManager) processRequestToGetAlbumInfo(r RequestToGetAlbumInfo) {
 	_, albumActorWasFound := m.albumActors[r.AlbumIdToRequest]
 	if !albumActorWasFound {
-		maybeActorCreated, err := createAlbumActor(r.AlbumIdToRequest, r.UsingDb, m.inbox)
+		maybeActorCreated, err := createAlbumActor(r.AlbumIdToRequest, r.UsingDb)
 		if err != nil {
 			r.PlaceInfoHere <- &ResponseAfterGettingAlbumInfo{MaybeAlbumInfoFound: nil, MaybeErrorFound: err}
 			return
